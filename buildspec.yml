@@ -25,6 +25,8 @@ phases:
   post_build:
     commands:
       - echo "Deploying to S3..."
+      - ls -lah
+      - ls -lah dist || echo "⚠️ dist directory not found!"
       - aws s3 sync dist/ s3://$BUCKET --delete
       - aws s3 website s3://$BUCKET/ --index-document index.html --error-document index.html
       - echo "✅ Deployment complete!"
