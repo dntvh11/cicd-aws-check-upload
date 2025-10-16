@@ -6,8 +6,9 @@ function App() {
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // ⚠️ THAY API_URL bằng Invoke URL thật từ API Gateway của bạn
-  const API_URL = "https://4ho0sxrscg.execute-api.ap-southeast-2.amazonaws.com/dev/upload";
+  // ⚠️ Invoke URL thật của API Gateway (đã có /upload)
+  const API_URL =
+    "https://4ho0sxrscg.execute-api.ap-southeast-2.amazonaws.com/dev/upload";
 
   const handleUpload = async () => {
     if (!username || !file) {
@@ -19,7 +20,7 @@ function App() {
     setMessage("⏳ Requesting pre-signed URL...");
 
     try {
-      // Step 1️⃣ Gọi API Gateway → Lambda → tạo pre-signed URL
+      // Step 1️⃣: Gọi API Gateway (Lambda) để lấy pre-signed URL
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -31,13 +32,20 @@ function App() {
       });
 
       if (!res.ok) throw new Error(`Lambda error: ${res.status}`);
-      const data = await res.json();
 
-      if (!data.uploadUrl) throw new Error("No upload URL received.");
+      const raw = await res.json();
+      console.log("Raw Lambda response:", raw);
 
-      // Step 2️⃣ Upload file trực tiếp lên S3
+      // ✅ Fix: Lambda trả về body là chuỗi JSON => phải parse thêm 1 lần
+      const result = typeof raw.body === "string" ? JSON.parse(raw.body) : raw;
+      console.log("Parsed result:", result);
+
+      const uploadUrl = result.uploadUrl;
+      if (!uploadUrl) throw new Error("No upload URL received.");
+
+      // Step 2️⃣: Upload file trực tiếp lên S3
       setMessage("⬆️ Uploading file to S3...");
-      const putRes = await fetch(data.uploadUrl, {
+      const putRes = await fetch(uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
@@ -49,7 +57,7 @@ function App() {
         throw new Error(`S3 upload failed (${putRes.status})`);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Upload error:", err);
       setMessage("❌ Upload failed: " + err.message);
     } finally {
       setUploading(false);
