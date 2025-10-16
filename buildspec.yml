@@ -1,0 +1,34 @@
+version: 0.2
+
+env:
+  variables:
+    REGION: "ap-southeast-2"
+    BUCKET: "docshare-ui-hosting"  # Thay bằng tên bucket thật của bạn
+  parameter-store:
+    API_URL: "/docshare/API_URL"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing dependencies..."
+      - npm install
+
+  build:
+    commands:
+      - echo "Building React app..."
+      - npm run build
+      - echo "Injecting API_URL from Parameter Store..."
+      - echo "window.API_URL='$API_URL'" > ./dist/config.js
+
+  post_build:
+    commands:
+      - echo "Deploying to S3..."
+      - aws s3 sync dist/ s3://$BUCKET --delete
+      - aws s3 website s3://$BUCKET/ --index-document index.html --error-document index.html
+      - echo "✅ Deployment complete!"
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist
